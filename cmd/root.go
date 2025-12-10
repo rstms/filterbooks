@@ -41,7 +41,7 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Version: "0.0.2",
+	Version: "0.1.0",
 	Use:     "filterbooks",
 	Short:   "dovecot sieve filter implmenting filter-books header manipulation",
 	Long: `
