@@ -25,12 +25,13 @@ type Scanner struct {
 	reader    *os.File
 	User      string
 	Sender    string
+	To        string
 	From      string
 	Book      string
 	header    []string
 	EOL       string
 	Domain    string
-	ApiKey    string
+	apiKey    string
 	MessageId string
 }
 
@@ -43,6 +44,8 @@ func NewScanner(writer, reader *os.File, user, sender string) *Scanner {
 		Sender: sender,
 		header: []string{},
 		EOL:    "\n",
+		apiKey: ViperGetString("api_key"),
+		Domain: ViperGetString("domain"),
 	}
 }
 
@@ -74,7 +77,7 @@ func (s *Scanner) Scan() error {
 	}
 	if enable {
 		address := s.User + "@" + s.Domain
-		book, err := LookupFilterBook(address, s.ApiKey, s.From)
+		book, err := LookupFilterBook(address, s.apiKey, s.From)
 		if err != nil {
 			return Fatal(err)
 		}
@@ -111,7 +114,7 @@ func (s *Scanner) ReadHeaderLine() (string, error) {
 		lineBuf[i] = byteBuf[0]
 		if byteBuf[0] == '\n' {
 			line := lineBuf[:i+1]
-			log.Printf("line: %s\n", HexDump(line))
+			//log.Printf("line: %s\n", HexDump(line))
 			return string(line), nil
 		}
 	}
@@ -158,16 +161,12 @@ func (s *Scanner) ReadHeader() (bool, error) {
 		case len(strings.TrimSpace(line)) == 0:
 			s.header = append(s.header, line)
 			return enable, nil
-		case strings.HasPrefix(lowLine, "x-filter-book-domain:"):
-			s.Domain = s.headerValue(line)
-			includeHeader = false
-		case strings.HasPrefix(lowLine, "x-filter-book-api-key:"):
-			s.ApiKey = s.headerValue(line)
-			includeHeader = false
 		case strings.HasPrefix(lowLine, "x-filter-book:"):
 			includeHeader = false
 		case strings.HasPrefix(lowLine, "message-id:"):
 			s.MessageId = s.headerValue(line)
+		case strings.HasPrefix(lowLine, "to:"):
+			s.To = s.headerValue(line)
 		case strings.HasPrefix(lowLine, "x-filterctl-request-id:"):
 			enable = false
 		case strings.HasPrefix(lowLine, "from:"):
