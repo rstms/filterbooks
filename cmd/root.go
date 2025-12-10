@@ -32,7 +32,9 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 
+	"github.com/rstms/filterbooks/scanner"
 	"github.com/spf13/cobra"
 )
 
@@ -41,13 +43,30 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Version: "0.0.1",
 	Use:     "filterbooks",
-	Short:   "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short:   "dovecot sieve filter implmenting filter-books header manipulation",
+	Long: `
+Scan email message from stdin and write message to stdout, modifying headers.
+Read environment vars set by sieve filter: 
+    HOME, USER, SENDER, RECIPIENT, ORIG_RECIPIENT
+Perform filterbook lookup on SENDER and set header if a match is found:
+    X-Filter-Book: <bookname>
+Do not change messages matching these conditions:
+    message has a header "X-Filterctl-Request-Id"
+    SENDER matches MAILER-DAEMON.*
+    SENDER matches SIEVE-DAEMON.*
+
+Determine the filterbook lookup address as follows:
+    username is $USER
+    domain is the domain part of the first 'Delivered-To' containing '@'
+`,
+	Run: func(cmd *cobra.Command, args []string) {
+		user := os.Getenv("USER")
+		sender := os.Getenv("SENDER")
+		err := scanner.NewScanner(os.Stdout, os.Stdin, user, sender).Scan()
+		cobra.CheckErr(err)
+	},
 }
+
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -56,4 +75,5 @@ func Execute() {
 }
 func init() {
 	CobraInit(rootCmd)
+	ViperSetDefault("logfile", filepath.Join(os.Getenv("HOME"), "filterbooks.log"))
 }
