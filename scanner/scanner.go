@@ -156,6 +156,7 @@ func (s *Scanner) ReadHeader() (bool, error) {
 		includeHeader := true
 		switch {
 		case len(strings.TrimSpace(line)) == 0:
+			s.header = append(s.header, line)
 			return enable, nil
 		case strings.HasPrefix(lowLine, "x-filter-book-domain:"):
 			s.Domain = s.headerValue(line)
