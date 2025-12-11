@@ -2,7 +2,6 @@ package scanner
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/rstms/rspamd-classes/classes"
@@ -11,7 +10,7 @@ import (
 	"slices"
 )
 
-const FILTERCTL_URL = "https://127.0.0.1:2017"
+const RESCAND_URL = "https://127.0.0.1:2017"
 
 type Response struct {
 	Success bool   `json:"success"`
@@ -30,17 +29,11 @@ type FilterControlClient struct {
 	client *http.Client
 }
 
-func EncodeApiKey(username, password string) string {
-	credentials := fmt.Sprintf("%s:%s", username, password)
-	apiKey := base64.StdEncoding.EncodeToString([]byte(credentials))
-	return apiKey
-}
-
-func ScanAddressBooks(username, password, address string) ([]string, error) {
+func ScanAddressBooks(username, apiKey, address string) ([]string, error) {
 
 	c := FilterControlClient{
 		client: &http.Client{},
-		apiKey: EncodeApiKey(username, password),
+		apiKey: apiKey,
 	}
 	var response UserDumpResponse
 	err := c.get(fmt.Sprintf("/userdump/%s/", username), &response)
@@ -69,7 +62,7 @@ func (c *FilterControlClient) request(method, path string, data *[]byte) (*http.
 	} else {
 		body = bytes.NewBuffer(*data)
 	}
-	req, err := http.NewRequest(method, FILTERCTL_URL+path, body)
+	req, err := http.NewRequest(method, RESCAND_URL+path, body)
 	if err != nil {
 		return nil, Fatalf("failed creating %s request: %v", method, err)
 	}

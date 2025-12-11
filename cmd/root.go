@@ -32,7 +32,6 @@ package cmd
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/rstms/filterbooks/scanner"
@@ -58,7 +57,7 @@ Do not change messages matching these conditions:
 
 Determine the filterbook lookup address as follows:
     username is $USER
-    domain is the domain part of the first 'Delivered-To' containing '@'
+    domain is the domain part of $HOST
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := scanner.NewScanner(os.Stdout, os.Stdin).Scan()
@@ -74,9 +73,7 @@ func Execute() {
 }
 func init() {
 	CobraInit(rootCmd)
-	ViperSetDefault("logfile", filepath.Join(os.Getenv("HOME"), "filterbooks.log"))
 	keys := []string{
-		"api_key",
 		"sender",
 		"recipient",
 		"host",
@@ -86,4 +83,5 @@ func init() {
 	for _, key := range keys {
 		ViperSetDefault(key, os.Getenv(strings.ToUpper(key)))
 	}
+	OptionString(rootCmd, "api-key", "k", "", "api key")
 }

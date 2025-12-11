@@ -34,8 +34,8 @@ type Scanner struct {
 	EOL       string
 	Address   string
 	MessageId string
-	apiKey    string
 	header    []string
+	apiKey    string
 }
 
 func NewScanner(writer, reader *os.File) *Scanner {
@@ -44,10 +44,10 @@ func NewScanner(writer, reader *os.File) *Scanner {
 		reader: reader,
 		header: []string{},
 		EOL:    "\n",
-		apiKey: ViperGetString("api_key"),
 		Host:   ViperGetString("host"),
 		User:   ViperGetString("user"),
 		Sender: ViperGetString("sender"),
+		apiKey: ViperGetString("api_key"),
 	}
 }
 
@@ -82,7 +82,7 @@ func (s *Scanner) Scan() error {
 		return Fatal(err)
 	}
 	if enable {
-		book, err := LookupFilterBook(s.Address, s.apiKey, s.From)
+		book, err := LookupFilterBook(s.Address, s.From, s.apiKey)
 		if err != nil {
 			return Fatal(err)
 		}
@@ -225,8 +225,8 @@ func parseEmailAddress(line string) (string, error) {
 	return "", fmt.Errorf("email address parse failed: %s", line)
 }
 
-func LookupFilterBook(to, apiKey, from string) (string, error) {
-	books, err := ScanAddressBooks(to, apiKey, from)
+func LookupFilterBook(to, from, key string) (string, error) {
+	books, err := ScanAddressBooks(to, from, key)
 	if err != nil {
 		return "", Fatal(err)
 	}
