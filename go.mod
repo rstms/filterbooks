@@ -3,7 +3,7 @@ module github.com/rstms/filterbooks
 go 1.25.4
 
 require (
-	github.com/rstms/go-common v0.2.62
+	github.com/rstms/go-common v0.2.63
 	github.com/rstms/rspamd-classes v1.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0

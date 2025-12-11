@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const Version = "0.1.3"
+
 var SkipSenders []string = []string{
 	"MAILER-DAEMON@",
 	"SIEVE-DAEMON@",
@@ -23,35 +25,33 @@ var VALID_EMAIL_ADDRESS = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\
 type Scanner struct {
 	writer    *os.File
 	reader    *os.File
+	Host      string
 	User      string
 	Sender    string
 	To        string
 	From      string
 	Book      string
-	header    []string
 	EOL       string
-	Domain    string
-	apiKey    string
+	Address   string
 	MessageId string
+	apiKey    string
+	header    []string
 }
 
-func NewScanner(writer, reader *os.File, user, sender string) *Scanner {
-	log.Printf("NewScanner user='%s' sender='%s'\n", user, sender)
+func NewScanner(writer, reader *os.File) *Scanner {
 	return &Scanner{
 		writer: writer,
 		reader: reader,
-		User:   user,
-		Sender: sender,
 		header: []string{},
 		EOL:    "\n",
 		apiKey: ViperGetString("api_key"),
-		Domain: ViperGetString("domain"),
+		Host:   ViperGetString("host"),
+		User:   ViperGetString("user"),
+		Sender: ViperGetString("sender"),
 	}
 }
 
 func (s *Scanner) Close() {
-	//log.Println("begin close")
-	//defer log.Println("end close")
 	bitbucket, err := os.OpenFile("/dev/null", os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)
@@ -64,25 +64,29 @@ func (s *Scanner) Close() {
 }
 
 func (s *Scanner) Scan() error {
-	//log.Printf("begin scan")
-	//defer log.Println("end scan")
+
 	for _, prefix := range SkipSenders {
 		if strings.HasPrefix(s.Sender, prefix) {
 			return s.WriteMessage()
 		}
 	}
+
+	_, domain, domainFound := strings.Cut(s.Host, ".")
+	if !domainFound {
+		return Fatalf("failed parsing domain from Host: %s", s.Host)
+	}
+	s.Address = s.User + "@" + domain
+
 	enable, err := s.ReadHeader()
 	if err != nil {
 		return Fatal(err)
 	}
 	if enable {
-		address := s.User + "@" + s.Domain
-		book, err := LookupFilterBook(address, s.apiKey, s.From)
+		book, err := LookupFilterBook(s.Address, s.apiKey, s.From)
 		if err != nil {
 			return Fatal(err)
 		}
 		s.Book = book
-		//log.Printf("filterbook: %s to=%s from=%s book=%s\n", s.MessageId, address, s.From, book)
 		log.Printf("filterbook: %s\n", FormatJSON(s))
 		if book != "" {
 			headerLine := fmt.Sprintf("X-Address-Book: %s", book)
@@ -114,7 +118,6 @@ func (s *Scanner) ReadHeaderLine() (string, error) {
 		lineBuf[i] = byteBuf[0]
 		if byteBuf[0] == '\n' {
 			line := lineBuf[:i+1]
-			//log.Printf("line: %s\n", HexDump(line))
 			return string(line), nil
 		}
 	}
@@ -130,8 +133,6 @@ func (s *Scanner) headerValue(line string) string {
 }
 
 func (s *Scanner) ReadHeader() (bool, error) {
-	//log.Println("begin ReadHeader")
-	//defer log.Println("end ReadHeader")
 	enable := true
 	for {
 		line, err := s.ReadHeaderLine()
@@ -184,8 +185,6 @@ func (s *Scanner) ReadHeader() (bool, error) {
 }
 
 func (s *Scanner) WriteHeader() error {
-	//log.Println("begin WriteHeader")
-	//defer log.Println("end WriteHeader")
 	for _, line := range s.header {
 		_, err := s.writer.Write([]byte(line + s.EOL))
 		if err != nil {
@@ -196,19 +195,14 @@ func (s *Scanner) WriteHeader() error {
 }
 
 func (s *Scanner) WriteMessage() error {
-	//log.Println("begin WriteMessage")
-	//defer log.Printf("end WriteMessage")
 	_, err := io.Copy(s.writer, s.reader)
 	if err != nil {
 		return Fatal(err)
 	}
-	//log.Printf("WriteMessage: wrote %d bytes\n", count)
 	return nil
 }
 
 func parseEmailAddress(line string) (string, error) {
-	//log.Printf("begin parseEmailAddress('%s')\n", line)
-	//defer log.Println("end parseEmailAddress")
 	if strings.Contains(line, "<") {
 		matches := EMAIL_ADDRESS_BRACKETED.FindStringSubmatch(line)
 		if len(matches) == 2 {

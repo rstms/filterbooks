@@ -33,6 +33,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rstms/filterbooks/scanner"
 	"github.com/spf13/cobra"
@@ -60,9 +61,7 @@ Determine the filterbook lookup address as follows:
     domain is the domain part of the first 'Delivered-To' containing '@'
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		user := os.Getenv("USER")
-		sender := os.Getenv("SENDER")
-		err := scanner.NewScanner(os.Stdout, os.Stdin, user, sender).Scan()
+		err := scanner.NewScanner(os.Stdout, os.Stdin).Scan()
 		cobra.CheckErr(err)
 	},
 }
@@ -76,4 +75,15 @@ func Execute() {
 func init() {
 	CobraInit(rootCmd)
 	ViperSetDefault("logfile", filepath.Join(os.Getenv("HOME"), "filterbooks.log"))
+	keys := []string{
+		"api_key",
+		"sender",
+		"recipient",
+		"host",
+		"orig_recipient",
+		"user",
+	}
+	for _, key := range keys {
+		ViperSetDefault(key, os.Getenv(strings.ToUpper(key)))
+	}
 }
