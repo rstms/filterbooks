@@ -51,7 +51,7 @@ func TestLookup(t *testing.T) {
 	address := ViperGetString("user") + "@" + domain
 	apiKey := ViperGetString("api_key")
 	sender := ViperGetString("sender")
-	book, err := LookupFilterBook(address, apiKey, sender)
+	book, err := ScanAddressBooks(address, sender, apiKey)
 	require.Nil(t, err)
 	log.Printf("book=%s\n", book)
 }

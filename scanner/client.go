@@ -29,7 +29,7 @@ type FilterControlClient struct {
 	client *http.Client
 }
 
-func ScanAddressBooks(username, apiKey, address string) ([]string, error) {
+func ScanAddressBooks(username, fromAddress, apiKey string) (string, error) {
 
 	c := FilterControlClient{
 		client: &http.Client{},
@@ -38,21 +38,24 @@ func ScanAddressBooks(username, apiKey, address string) ([]string, error) {
 	var response UserDumpResponse
 	err := c.get(fmt.Sprintf("/books/%s/", username), &response)
 	if err != nil {
-		return nil, Fatal(err)
+		return "", Fatal(err)
 	}
 	if !response.Success {
-		return nil, Fatalf("scan request failed: %v\n", response.Message)
+		return "", Fatalf("scan request failed: %v\n", response.Message)
 	}
 	books := []string{}
-	for book, addrs := range response.Books {
+	for bookName, addrs := range response.Books {
 		for _, addr := range addrs {
-			if addr == address {
-				books = append(books, book)
+			if addr == fromAddress {
+				books = append(books, bookName)
 			}
 		}
 	}
 	slices.Sort(books)
-	return books, nil
+	if len(books) > 0 {
+		return books[0], nil
+	}
+	return "", nil
 }
 
 func (c *FilterControlClient) request(method, path string, data *[]byte) (*http.Request, error) {

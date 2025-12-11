@@ -82,7 +82,7 @@ func (s *Scanner) Scan() error {
 		return Fatal(err)
 	}
 	if enable {
-		book, err := LookupFilterBook(s.Address, s.From, s.apiKey)
+		book, err := ScanAddressBooks(s.Address, s.From, s.apiKey)
 		if err != nil {
 			return Fatal(err)
 		}
@@ -223,16 +223,4 @@ func parseEmailAddress(line string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("email address parse failed: %s", line)
-}
-
-func LookupFilterBook(to, from, key string) (string, error) {
-	books, err := ScanAddressBooks(to, from, key)
-	if err != nil {
-		return "", Fatal(err)
-	}
-	var book string
-	if len(books) > 0 {
-		book = books[0]
-	}
-	return book, nil
 }
