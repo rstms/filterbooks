@@ -36,7 +36,7 @@ func ScanAddressBooks(username, apiKey, address string) ([]string, error) {
 		apiKey: apiKey,
 	}
 	var response UserDumpResponse
-	err := c.get(fmt.Sprintf("/userdump/%s/", username), &response)
+	err := c.get(fmt.Sprintf("/books/%s/", username), &response)
 	if err != nil {
 		return nil, Fatal(err)
 	}
