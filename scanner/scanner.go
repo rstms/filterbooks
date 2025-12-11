@@ -19,7 +19,7 @@ var SkipSenders []string = []string{
 
 const LINE_BUFLEN = 1024
 
-var EMAIL_ADDRESS_BRACKETED = regexp.MustCompile(`^.*<([^@]+@[^>]+)>.*$`)
+var BRACKETED_TEXT = regexp.MustCompile(`^.*<([^>]+)>.*$`)
 var VALID_EMAIL_ADDRESS = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
 type Scanner struct {
@@ -36,19 +36,35 @@ type Scanner struct {
 	MessageId string
 	header    []string
 	apiKey    string
+	verbose   bool
+	debug     bool
 }
 
-func NewScanner(writer, reader *os.File) *Scanner {
-	return &Scanner{
-		writer: writer,
-		reader: reader,
-		header: []string{},
-		EOL:    "\n",
-		Host:   ViperGetString("host"),
-		User:   ViperGetString("user"),
-		Sender: ViperGetString("sender"),
-		apiKey: ViperGetString("api_key"),
+func NewScanner(writer, reader *os.File) (*Scanner, error) {
+	s := Scanner{
+		writer:  writer,
+		reader:  reader,
+		header:  []string{},
+		EOL:     "\n",
+		Host:    ViperGetString("host"),
+		User:    ViperGetString("user"),
+		Sender:  ViperGetString("sender"),
+		apiKey:  ViperGetString("api_key"),
+		verbose: ViperGetBool("verbose"),
 	}
+	if s.Host == "" {
+		return nil, Fatalf("missing host")
+	}
+	if s.User == "" {
+		return nil, Fatalf("missing user")
+	}
+	if s.Sender == "" {
+		return nil, Fatalf("missing sender")
+	}
+	if s.apiKey == "" {
+		return nil, Fatalf("missing api_key")
+	}
+	return &s, nil
 }
 
 func (s *Scanner) Close() {
@@ -67,6 +83,9 @@ func (s *Scanner) Scan() error {
 
 	for _, prefix := range SkipSenders {
 		if strings.HasPrefix(s.Sender, prefix) {
+			if s.verbose {
+				log.Printf("ignoring %s message\n", s.Sender)
+			}
 			return s.WriteMessage()
 		}
 	}
@@ -87,9 +106,12 @@ func (s *Scanner) Scan() error {
 			return Fatal(err)
 		}
 		s.Book = book
-		log.Printf("filterbook: %s\n", FormatJSON(s))
+		if s.verbose {
+			log.Printf("filterbook: %s\n", FormatJSON(s))
+		}
 		if book != "" {
 			headerLine := fmt.Sprintf("X-Address-Book: %s", book)
+			log.Printf("adding: %s\n", headerLine)
 			s.header = append([]string{headerLine}, s.header...)
 		}
 	}
@@ -124,14 +146,6 @@ func (s *Scanner) ReadHeaderLine() (string, error) {
 	return "", Fatalf("buffer overflow")
 }
 
-func (s *Scanner) headerValue(line string) string {
-	_, value, found := strings.Cut(line, ":")
-	if found {
-		return strings.TrimSpace(value)
-	}
-	return ""
-}
-
 func (s *Scanner) ReadHeader() (bool, error) {
 	enable := true
 	for {
@@ -162,16 +176,27 @@ func (s *Scanner) ReadHeader() (bool, error) {
 		case len(strings.TrimSpace(line)) == 0:
 			s.header = append(s.header, line)
 			return enable, nil
-		case strings.HasPrefix(lowLine, "x-filter-book:"):
+		case strings.HasPrefix(lowLine, "x-address-book:"):
+			if s.verbose {
+				log.Printf("removing: %s\n", line)
+			}
 			includeHeader = false
 		case strings.HasPrefix(lowLine, "message-id:"):
-			s.MessageId = s.headerValue(line)
+			s.MessageId = s.bracketedText(s.headerValue(line))
+			log.Printf("Message-Id: %s\n", s.MessageId)
 		case strings.HasPrefix(lowLine, "to:"):
-			s.To = s.headerValue(line)
+			toAddr, err := s.parseEmailAddress(lowLine)
+			if err != nil {
+				return false, Fatal(err)
+			}
+			s.To = toAddr
 		case strings.HasPrefix(lowLine, "x-filterctl-request-id:"):
+			if s.verbose {
+				log.Println("ignoring filterctl request")
+			}
 			enable = false
 		case strings.HasPrefix(lowLine, "from:"):
-			fromAddr, err := parseEmailAddress(lowLine)
+			fromAddr, err := s.parseEmailAddress(lowLine)
 			if err != nil {
 				return false, Fatal(err)
 			}
@@ -202,25 +227,39 @@ func (s *Scanner) WriteMessage() error {
 	return nil
 }
 
-func parseEmailAddress(line string) (string, error) {
-	if strings.Contains(line, "<") {
-		matches := EMAIL_ADDRESS_BRACKETED.FindStringSubmatch(line)
-		if len(matches) == 2 {
-			log.Printf("parseEmailAddress returning %s\n", matches[1])
-			address := matches[1]
-			if VALID_EMAIL_ADDRESS.MatchString(address) {
-				return address, nil
-			}
-		}
-
-	} else {
-		_, address, found := strings.Cut(line, ":")
-		if found {
-			address = strings.TrimSpace(address)
-			if VALID_EMAIL_ADDRESS.MatchString(address) {
-				return address, nil
-			}
-		}
+func (s *Scanner) headerValue(line string) string {
+	var ret string
+	_, value, found := strings.Cut(line, ":")
+	if found {
+		ret = strings.TrimSpace(value)
 	}
-	return "", fmt.Errorf("email address parse failed: %s", line)
+	if s.debug {
+		log.Printf("headerValue(%s) returning '%s'\n", line, ret)
+	}
+	return ret
+}
+
+func (s *Scanner) bracketedText(line string) string {
+	var ret string
+	matches := BRACKETED_TEXT.FindStringSubmatch(line)
+	if len(matches) == 2 {
+		ret = matches[1]
+	} else {
+		ret = line
+	}
+	if s.debug {
+		log.Printf("bracketedText(%s) returning '%s'\n", line, ret)
+	}
+	return ret
+}
+
+func (s *Scanner) parseEmailAddress(line string) (string, error) {
+	address := s.bracketedText(s.headerValue(line))
+	if VALID_EMAIL_ADDRESS.MatchString(address) {
+		if s.debug {
+			log.Printf("parseEmailAddress(%s) returning '%s'\n", line, address)
+		}
+		return address, nil
+	}
+	return "", Fatalf("failed address parse: %s", line)
 }

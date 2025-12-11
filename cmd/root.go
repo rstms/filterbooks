@@ -60,8 +60,10 @@ Determine the filterbook lookup address as follows:
     domain is the domain part of $HOST
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := scanner.NewScanner(os.Stdout, os.Stdin).Scan()
+		bookScanner, err := scanner.NewScanner(os.Stdout, os.Stdin)
 		cobra.CheckErr(err)
+		defer bookScanner.Close()
+		bookScanner.Scan()
 	},
 }
 
@@ -71,6 +73,7 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
 func init() {
 	CobraInit(rootCmd)
 	keys := []string{
