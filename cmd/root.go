@@ -86,5 +86,9 @@ func init() {
 	for _, key := range keys {
 		ViperSetDefault(key, os.Getenv(strings.ToUpper(key)))
 	}
-	OptionString(rootCmd, "api-key", "k", "", "api key")
+	OptionString(rootCmd, "api-key", "", "", "filterctld api key")
+	OptionString(rootCmd, "filterctld-url", "", "https://127.0.0.1:4443", "filterctld URL")
+	OptionString(rootCmd, "cert", "", "/etc/filterbooks/filterbooks.pem", "client certificate PEM file")
+	OptionString(rootCmd, "key", "", "/etc/filterbooks/filterbooks.key", "client certificate key PEM file")
+	OptionString(rootCmd, "ca", "", "/etc/ssl/keymaster.pem", "CA file")
 }

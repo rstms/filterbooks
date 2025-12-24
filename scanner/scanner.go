@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -21,6 +22,16 @@ const LINE_BUFLEN = 1024
 
 var BRACKETED_TEXT = regexp.MustCompile(`^.*<([^>]+)>.*$`)
 var VALID_EMAIL_ADDRESS = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+type Response struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+type ScanResponse struct {
+	Response
+	Books []string `json:"Books"`
+}
 
 type Scanner struct {
 	writer    *os.File
@@ -38,6 +49,7 @@ type Scanner struct {
 	apiKey    string
 	verbose   bool
 	debug     bool
+	client    APIClient
 }
 
 func NewScanner(writer, reader *os.File) (*Scanner, error) {
@@ -49,7 +61,6 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		Host:    ViperGetString("host"),
 		User:    ViperGetString("user"),
 		Sender:  ViperGetString("sender"),
-		apiKey:  ViperGetString("api_key"),
 		verbose: ViperGetBool("verbose"),
 	}
 	if s.Host == "" {
@@ -61,8 +72,20 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 	if s.Sender == "" {
 		return nil, Fatalf("missing sender")
 	}
-	if s.apiKey == "" {
+	if ViperGetString("api_key") == "" {
 		return nil, Fatalf("missing api_key")
+	}
+	var err error
+	s.client, err = NewAPIClient(
+		"",
+		ViperGetString("filterctld_url"),
+		ViperGetString("cert"),
+		ViperGetString("key"),
+		ViperGetString("ca"),
+		&map[string]string{"X-Api-Key": ViperGetString("api_key")},
+	)
+	if err != nil {
+		return nil, Fatal(err)
 	}
 	return &s, nil
 }
@@ -101,7 +124,7 @@ func (s *Scanner) Scan() error {
 		return Fatal(err)
 	}
 	if enable {
-		book, err := ScanAddressBooks(s.Address, s.From, s.apiKey)
+		book, err := s.ScanAddressBooks(s.Address, s.From)
 		if err != nil {
 			return Fatal(err)
 		}
@@ -262,4 +285,21 @@ func (s *Scanner) parseEmailAddress(line string) (string, error) {
 		return address, nil
 	}
 	return "", Fatalf("failed address parse: %s", line)
+}
+
+func (s *Scanner) ScanAddressBooks(username, fromAddress string) (string, error) {
+
+	var response ScanResponse
+	_, err := s.client.Get(fmt.Sprintf("/filterctl/scan/%s/%s/", username, fromAddress), &response)
+	if err != nil {
+		return "", Fatal(err)
+	}
+	if !response.Success {
+		return "", Fatalf("scan request failed: %v\n", response.Message)
+	}
+	if len(books) > 0 {
+		slices.Sort(response.Books)
+		return response.Books[0], nil
+	}
+	return "", nil
 }
