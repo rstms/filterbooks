@@ -297,7 +297,7 @@ func (s *Scanner) ScanAddressBooks(username, fromAddress string) (string, error)
 	if !response.Success {
 		return "", Fatalf("scan request failed: %v\n", response.Message)
 	}
-	if len(books) > 0 {
+	if len(response.Books) > 0 {
 		slices.Sort(response.Books)
 		return response.Books[0], nil
 	}
