@@ -75,9 +75,6 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 	if s.Sender == "" {
 		return nil, Fatalf("missing sender")
 	}
-	if ViperGetString("filterctld_api_key") == "" {
-		return nil, Fatalf("missing api_key")
-	}
 	var err error
 	s.client, err = NewAPIClient("", ViperGetString("filterctld_url"), "", "", "", nil)
 	if err != nil {
