@@ -102,7 +102,8 @@ func (s *Scanner) Scan() error {
 			if s.verbose {
 				log.Printf("ignoring %s message\n", s.Sender)
 			}
-			return s.WriteMessage()
+			_, err := s.WriteMessage()
+			return err
 		}
 	}
 
@@ -131,13 +132,19 @@ func (s *Scanner) Scan() error {
 			s.header = append([]string{headerLine}, s.header...)
 		}
 	}
-	err = s.WriteHeader()
+	count, err := s.WriteHeader()
 	if err != nil {
 		return Fatal(err)
 	}
-	err = s.WriteMessage()
+	if s.verbose {
+		log.Printf("wrote %d header bytes", count)
+	}
+	count, err = s.WriteMessage()
 	if err != nil {
 		return Fatal(err)
+	}
+	if s.verbose {
+		log.Printf("wrote %d message bytes", count)
 	}
 	return nil
 }
@@ -185,6 +192,8 @@ func (s *Scanner) ReadHeader() (bool, error) {
 			if s.EOL == "" {
 				s.EOL = "\r"
 			}
+		default:
+			return false, Fatalf("unexpected line ending: %s\n", HexDump([]byte(line)))
 		}
 		lowLine := strings.ToLower(line)
 		includeHeader := true
@@ -225,22 +234,27 @@ func (s *Scanner) ReadHeader() (bool, error) {
 	return false, Fatalf("logic error")
 }
 
-func (s *Scanner) WriteHeader() error {
+func (s *Scanner) WriteHeader() (int64, error) {
+	var count int64
 	for _, line := range s.header {
+		if s.verbose {
+			log.Printf("WriteHeader: %s\n", line)
+		}
+		count += int64(len(line) + len(s.EOL))
 		_, err := s.writer.Write([]byte(line + s.EOL))
 		if err != nil {
-			return Fatal(err)
+			return 0, Fatal(err)
 		}
 	}
-	return nil
+	return count, nil
 }
 
-func (s *Scanner) WriteMessage() error {
-	_, err := io.Copy(s.writer, s.reader)
+func (s *Scanner) WriteMessage() (int64, error) {
+	count, err := io.Copy(s.writer, s.reader)
 	if err != nil {
-		return Fatal(err)
+		return 0, Fatal(err)
 	}
-	return nil
+	return count, nil
 }
 
 func (s *Scanner) headerValue(line string) string {
