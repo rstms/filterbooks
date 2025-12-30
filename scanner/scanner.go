@@ -82,7 +82,7 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		ViperGetString("cert"),
 		ViperGetString("key"),
 		ViperGetString("ca"),
-		&map[string]string{"X-Api-Key": ViperGetString("api_key")},
+		&map[string]string{"X-Api-Key": ViperGetString("filterctld_api_key")},
 	)
 	if err != nil {
 		return nil, Fatal(err)
