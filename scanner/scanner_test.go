@@ -24,10 +24,9 @@ func initViper(t *testing.T) {
 		cfg.Close()
 	}
 	Init("filterbooks", Version, configFile)
-	setDefault(t, "sender")
-	setDefault(t, "user")
 	setDefault(t, "host")
-	setDefault(t, "api_key")
+	setDefault(t, "user")
+	setDefault(t, "sender")
 }
 
 func TestScanner(t *testing.T) {
@@ -38,7 +37,7 @@ func TestScanner(t *testing.T) {
 	outfile, err := os.Create(filepath.Join("testdata", "output"))
 	require.Nil(t, err)
 	defer outfile.Close()
-	scanner, err := NewScanner(outfile, infile)
+	scanner, err := NewScanner(ViperGetString("filterctld_url"), outfile, infile)
 	require.Nil(t, err)
 	defer scanner.Close()
 	err = scanner.Scan()
@@ -47,12 +46,21 @@ func TestScanner(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	initViper(t)
+	infile, err := os.Open(filepath.Join("testdata", "message"))
+	require.Nil(t, err)
+	defer infile.Close()
+	outfile, err := os.Create(filepath.Join("testdata", "output"))
+	require.Nil(t, err)
+	defer outfile.Close()
+	scanner, err := NewScanner(ViperGetString("filterctld_url"), outfile, infile)
+	require.Nil(t, err)
+
 	_, domain, found := strings.Cut(ViperGetString("host"), ".")
 	require.True(t, found)
 	address := ViperGetString("user") + "@" + domain
-	apiKey := ViperGetString("api_key")
 	sender := ViperGetString("sender")
-	book, err := ScanAddressBooks(address, sender, apiKey)
+
+	book, err := scanner.ScanAddressBooks(address, sender)
 	require.Nil(t, err)
 	log.Printf("book=%s\n", book)
 }

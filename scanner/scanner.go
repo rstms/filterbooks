@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const Version = "0.1.3"
+const Version = "0.1.15"
 
 var SkipSenders []string = []string{
 	"MAILER-DAEMON@",
@@ -52,7 +52,7 @@ type Scanner struct {
 	client    APIClient
 }
 
-func NewScanner(writer, reader *os.File) (*Scanner, error) {
+func NewScanner(url string, writer, reader *os.File) (*Scanner, error) {
 	s := Scanner{
 		writer:  writer,
 		reader:  reader,
@@ -64,7 +64,7 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		verbose: ViperGetBool("verbose"),
 	}
 	if s.verbose {
-		log.Printf("filterbooks v%s", Version)
+		log.Printf("filterbooks v%s url=%s host=%s user=%s sender=%s\n", Version, url, s.Host, s.User, s.Sender)
 	}
 	if s.Host == "" {
 		return nil, Fatalf("missing host")
@@ -76,7 +76,7 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		return nil, Fatalf("missing sender")
 	}
 	var err error
-	s.client, err = NewAPIClient("", ViperGetString("filterctld_url"), "", "", "", nil)
+	s.client, err = NewAPIClient("", url, "", "", "", nil)
 	if err != nil {
 		return nil, Fatal(err)
 	}

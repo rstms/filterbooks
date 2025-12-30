@@ -60,10 +60,11 @@ Determine the filterbook lookup address as follows:
     domain is the domain part of $HOST
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		bookScanner, err := scanner.NewScanner(os.Stdout, os.Stdin)
+		bookScanner, err := scanner.NewScanner(ViperGetString("filterctld_url"), os.Stdout, os.Stdin)
 		cobra.CheckErr(err)
 		defer bookScanner.Close()
-		bookScanner.Scan()
+		err = bookScanner.Scan()
+		cobra.CheckErr(err)
 	},
 }
 
@@ -86,7 +87,7 @@ func init() {
 	for _, key := range keys {
 		ViperSetDefault(key, os.Getenv(strings.ToUpper(key)))
 	}
-	OptionString(rootCmd, "filterctld-url", "", "https://127.0.0.1:2016", "filterctld URL")
+	OptionString(rootCmd, "filterctld-url", "", "http://127.0.0.1:2016", "filterctld URL")
 	OptionString(rootCmd, "cert", "", "", "client certificate PEM file")
 	OptionString(rootCmd, "key", "", "", "client certificate key PEM file")
 	OptionString(rootCmd, "ca", "", "", "CA file")
