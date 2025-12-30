@@ -63,6 +63,9 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		Sender:  ViperGetString("sender"),
 		verbose: ViperGetBool("verbose"),
 	}
+	if s.verbose {
+		log.Printf("filterbooks v%s", Version)
+	}
 	if s.Host == "" {
 		return nil, Fatalf("missing host")
 	}
@@ -72,7 +75,7 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 	if s.Sender == "" {
 		return nil, Fatalf("missing sender")
 	}
-	if ViperGetString("api_key") == "" {
+	if ViperGetString("filterctld_api_key") == "" {
 		return nil, Fatalf("missing api_key")
 	}
 	var err error
