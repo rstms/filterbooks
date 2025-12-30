@@ -79,14 +79,7 @@ func NewScanner(writer, reader *os.File) (*Scanner, error) {
 		return nil, Fatalf("missing api_key")
 	}
 	var err error
-	s.client, err = NewAPIClient(
-		"",
-		ViperGetString("filterctld_url"),
-		ViperGetString("cert"),
-		ViperGetString("key"),
-		ViperGetString("ca"),
-		&map[string]string{"X-Api-Key": ViperGetString("filterctld_api_key")},
-	)
+	s.client, err = NewAPIClient("", ViperGetString("filterctld_url"), "", "", "", nil)
 	if err != nil {
 		return nil, Fatal(err)
 	}
