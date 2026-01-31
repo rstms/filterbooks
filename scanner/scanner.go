@@ -306,6 +306,12 @@ func (s *Scanner) ScanAddressBooks(username, fromAddress string) (string, error)
 	}
 	if len(response.Books) > 0 {
 		slices.Sort(response.Books)
+		// prioritize whitelist filterbook
+		for _, book := range response.Books {
+			if book == "whitelist" {
+				return book, nil
+			}
+		}
 		return response.Books[0], nil
 	}
 	return "", nil
