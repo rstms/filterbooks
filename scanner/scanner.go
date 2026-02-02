@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -30,7 +29,9 @@ type Response struct {
 
 type ScanResponse struct {
 	Response
-	Books []string `json:"Books"`
+	Whitelisted bool     `json:"Whitelisted"`
+	Book        string   `json:"Book"`
+	Books       []string `json:"Books"`
 }
 
 type Scanner struct {
@@ -118,18 +119,9 @@ func (s *Scanner) Scan() error {
 		return Fatal(err)
 	}
 	if enable {
-		book, err := s.ScanAddressBooks(s.Address, s.From)
+		err := s.ScanAddressBooks(s.Address, s.From)
 		if err != nil {
 			return Fatal(err)
-		}
-		s.Book = book
-		if s.verbose {
-			log.Printf("filterbook: %s\n", FormatJSON(s))
-		}
-		if book != "" {
-			headerLine := fmt.Sprintf("X-Address-Book: %s", book)
-			log.Printf("adding: %s\n", headerLine)
-			s.header = append([]string{headerLine}, s.header...)
 		}
 	}
 	count, err := s.WriteHeader()
@@ -147,6 +139,14 @@ func (s *Scanner) Scan() error {
 		log.Printf("wrote %d message bytes", count)
 	}
 	return nil
+}
+
+func (s *Scanner) AddHeaderLine(headerLine string) {
+	if s.verbose {
+		log.Printf("adding: %s\n", headerLine)
+	}
+	s.header = append([]string{headerLine}, s.header...)
+	return
 }
 
 func (s *Scanner) ReadHeaderLine() (string, error) {
@@ -294,25 +294,22 @@ func (s *Scanner) parseEmailAddress(line string) (string, error) {
 	return "", Fatalf("failed address parse: %s", line)
 }
 
-func (s *Scanner) ScanAddressBooks(username, fromAddress string) (string, error) {
+func (s *Scanner) ScanAddressBooks(username, fromAddress string) error {
 
 	var response ScanResponse
 	_, err := s.client.Get(fmt.Sprintf("/filterctl/scan/%s/%s/", username, fromAddress), &response)
 	if err != nil {
-		return "", Fatal(err)
+		return Fatal(err)
 	}
 	if !response.Success {
-		return "", Fatalf("scan request failed: %v\n", response.Message)
+		return Fatalf("scan request failed: %v\n", response.Message)
 	}
-	if len(response.Books) > 0 {
-		slices.Sort(response.Books)
-		// prioritize whitelist filterbook
-		for _, book := range response.Books {
-			if book == "whitelist" {
-				return book, nil
-			}
-		}
-		return response.Books[0], nil
+	if response.Whitelisted {
+		s.AddHeaderLine("X-Whitelisted: yes")
 	}
-	return "", nil
+	if response.Book != "" {
+		s.AddHeaderLine(fmt.Sprintf("X-FilterBook: %s", response.Book))
+	}
+	s.AddHeaderLine(fmt.Sprintf("X-FilterBooks: %s", strings.Join(response.Books, ",")))
+	return nil
 }
